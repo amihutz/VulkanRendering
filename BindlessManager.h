@@ -22,7 +22,7 @@ namespace VKQuick {
 
 		} 
 
-		uint32_t AddMesh(const VKQuick::Mesh& mesh, std::vector< int32_t > materials);
+		uint32_t AddMesh(const VKQuick::Mesh& mesh, const std::vector< int32_t >& materials);
 		uint32_t AddTexture(const VKQuick::Texture& tex, const vk::Sampler sampler);
 		uint32_t AddBuffer(const VKQuick::Buffer& buffer);
 

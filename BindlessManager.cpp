@@ -82,7 +82,7 @@ BindlessManager::BindlessManager(vk::Device device, vk::DescriptorPool pool, Mem
 	.Build();
 }
 
-uint32_t BindlessManager::AddMesh(const VKQuick::Mesh& mesh, std::vector< int32_t > materials) {
+uint32_t BindlessManager::AddMesh(const VKQuick::Mesh& mesh, const std::vector< int32_t >& materials) {
 	auto entry = m_meshes.insert({ &mesh , (uint32_t)m_meshes.size() });
 
 	if (entry.second) {
@@ -91,17 +91,21 @@ uint32_t BindlessManager::AddMesh(const VKQuick::Mesh& mesh, std::vector< int32_
 		//and then new entries for all of the submeshes
 
 		const std::vector<MeshRange>& ranges = mesh.GetRanges();
-		int32_t* matIndex = materials.data();
+		assert(ranges.size() == materials.size());
 
 		MeshEntry& meshEntry = m_meshesBuffer.Map<MeshEntry>()[entry.first->second];
 
 		uint32_t bufferIndex = AddBuffer(mesh.GetBuffer());
-		AttributeData attributeData;
+		
 		IndexData indexData;
+		bool hasIndices = mesh.GetIndexData(indexData);
+		meshEntry.indexBufferIndex	= bufferIndex;
+		meshEntry.indexBufferOffset = indexData.offset;	
 
-		mesh.GetIndexData(indexData);
 
 		size_t attribIndex = 0;
+		AttributeData attributeData;
+		
 		if (mesh.GetAttributeIndex(VKQuick::AttributeType::Position, attribIndex) && 
 			mesh.GeAttributeData(attribIndex, attributeData)) {
 
@@ -112,40 +116,38 @@ uint32_t BindlessManager::AddMesh(const VKQuick::Mesh& mesh, std::vector< int32_
 		if (mesh.GetAttributeIndex(VKQuick::AttributeType::Colour, attribIndex) &&
 			mesh.GeAttributeData(attribIndex, attributeData)) {
 
-			meshEntry.colourBufferIndex = bufferIndex;
-			meshEntry.colourBufferOffset = attributeData.offset;
+			meshEntry.colourBufferIndex		= bufferIndex;
+			meshEntry.colourBufferOffset	= attributeData.offset;
 		}
 
 		if (mesh.GetAttributeIndex(VKQuick::AttributeType::TexCoord, attribIndex) &&
 			mesh.GeAttributeData(attribIndex, attributeData)) {
 
-			meshEntry.texCoordBufferIndex = bufferIndex;
-			meshEntry.texCoordBufferOffset = attributeData.offset;
+			meshEntry.texCoordBufferIndex	= bufferIndex;
+			meshEntry.texCoordBufferOffset	= attributeData.offset;
 		}
 
 		if (mesh.GetAttributeIndex(VKQuick::AttributeType::Normals, attribIndex) &&
 			mesh.GeAttributeData(attribIndex, attributeData)) {
 
-			meshEntry.normalBufferIndex = bufferIndex;
-			meshEntry.normalBufferOffset = attributeData.offset;
+			meshEntry.normalBufferIndex		= bufferIndex;
+			meshEntry.normalBufferOffset	= attributeData.offset;
 		}
 
 		if (mesh.GetAttributeIndex(VKQuick::AttributeType::Tangents, attribIndex) &&
 			mesh.GeAttributeData(attribIndex, attributeData)) {
 
-			meshEntry.tangentBufferIndex = bufferIndex;
-			meshEntry.tangentBufferOffset = attributeData.offset;
+			meshEntry.tangentBufferIndex	= bufferIndex;
+			meshEntry.tangentBufferOffset	= attributeData.offset;
 		}
-
-		meshEntry.indexBufferIndex	= bufferIndex;
-		meshEntry.indexBufferOffset = indexData.offset;
 
 		//Now copy the info for each of the submeshes / sublayers / whatevers
 		meshEntry.subMeshCount		= ranges.size();
 		meshEntry.firstSubMeshIndex = m_subLayersUsed;
 		m_subLayersUsed += meshEntry.subMeshCount;
 
-		MeshLayerEntry* meshLayer = &m_meshLayersBuffer.Map<MeshLayerEntry>()[meshEntry.firstSubMeshIndex];
+		MeshLayerEntry* meshLayer	= &m_meshLayersBuffer.Map<MeshLayerEntry>()[meshEntry.firstSubMeshIndex];
+		const int32_t* matIndex		= materials.data();
 
 		for (auto& range : ranges) {
 			meshLayer->firstElement		= range.start;
@@ -176,12 +178,10 @@ uint32_t BindlessManager::AddTexture(const VKQuick::Texture& tex, const vk::Samp
 
 uint32_t BindlessManager::AddBuffer(const VKQuick::Buffer& buffer) {
 	auto entry = m_buffers.insert({ &buffer , (uint32_t)m_buffers.size() });
-
 	if (entry.second) { //This was a new buffer!
 		vk::DeviceAddress& addresses = m_allBuffers.Map<vk::DeviceAddress>()[entry.first->second];
 		addresses = buffer.GetDeviceAddress();
 		m_allBuffers.Unmap();
 	}
-
 	return entry.first->second;
 }
